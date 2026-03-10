@@ -1,0 +1,50 @@
+# Environnement virtuel
+venv/
+ENV/
+env/
+.venv
+
+# Fichiers de configuration sensibles
+.env
+config/.env
+*.pem
+*.key
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Streamlit
+.streamlit/
+.streamlit/secrets.toml
+
+# Dossiers de données
+data/raw/*
+data/processed/*
+!data/.gitkeep
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
