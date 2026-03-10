@@ -7,6 +7,9 @@ from sqlalchemy import create_engine
 env_path = Path(__file__).parent / '.env'
 load_dotenv(env_path)
 
+# Dossier racine du projet
+PROJECT_ROOT = Path(__file__).parent.parent
+
 class Config:
     """Configuration centralisée pour le projet ETL Accidents"""
     
@@ -26,9 +29,9 @@ class Config:
     # === DATA GOUV ===
     DATA_GOUV_BASE_URL = os.getenv('DATA_GOUV_BASE_URL', 'https://www.data.gouv.fr/fr/datasets/r/')
     
-    # === DOSSIERS ===
-    RAW_DATA_DIR = Path(os.getenv('RAW_DATA_DIR', 'data/raw'))
-    PROCESSED_DATA_DIR = Path(os.getenv('PROCESSED_DATA_DIR', 'data/processed'))
+    # === DOSSIERS (chemins absolus) ===
+    RAW_DATA_DIR = Path(os.getenv('RAW_DATA_DIR', str(PROJECT_ROOT / 'data' / 'raw')))
+    PROCESSED_DATA_DIR = Path(os.getenv('PROCESSED_DATA_DIR', str(PROJECT_ROOT / 'data' / 'processed')))
     
     # Créer les dossiers s'ils n'existent pas
     RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)

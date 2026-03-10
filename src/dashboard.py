@@ -28,15 +28,70 @@ class DashboardData:
         self._load_csv_data()
         
     def _load_csv_data(self):
-        """Charge les données CSV pour fallback"""
+        """Charge les données CSV depuis le dossier processed"""
         try:
-            self.df_characteristics = pd.read_csv(f"{config.PROCESSED_DATA_DIR}/caracteristiques-2023.csv")
-            self.df_characteristics['date_acc'] = pd.to_datetime(self.df_characteristics['date_acc'])
-            self.df_locations = pd.read_csv(f"{config.PROCESSED_DATA_DIR}/lieux-2023.csv")
-            self.df_users = pd.read_csv(f"{config.PROCESSED_DATA_DIR}/usagers-2023.csv")
-            self.df_vehicles = pd.read_csv(f"{config.PROCESSED_DATA_DIR}/vehicules-2023.csv")
-        except Exception as e:
-            print(f"⚠️ Impossible de charger les CSV: {e}")
+            # Charger caracteristiques
+            self.df_characteristics = pd.read_csv(f"{config.PROCESSED_DATA_DIR}/caracteristiques-2023.csv", sep=';', encoding='utf-8')
+            # Renommer les colonnes
+            self.df_characteristics = self.df_characteristics.rename(columns={
+                'num_acc': 'Num_Acc',
+                'jour': 'jour',
+                'mois': 'mois',
+                'an': 'an',
+                'hrmn': 'heure',
+                'lum': 'lum',
+                'dep': 'dept',
+                'adr': 'adr',
+                'lat': 'lat',
+                'long': 'lon'
+            })
+            # Extraire l'heure de hrmn (format HH:MM)
+            self.df_characteristics['heure'] = self.df_characteristics['heure'].str.split(':').str[0].astype(int, errors='ignore')
+            # Créer date_acc (premier jour du mois)
+            self.df_characteristics['date_acc'] = pd.to_datetime(
+                self.df_characteristics['an'].astype(str) + '-' + 
+                self.df_characteristics['mois'].astype(str).str.zfill(2) + '-01',
+                format='%Y-%m-%d',
+                errors='coerce'
+            )
+            
+            # Charger lieux
+            self.df_locations = pd.read_csv(f"{config.PROCESSED_DATA_DIR}/lieux-2023.csv", sep=';', encoding='utf-8')
+            self.df_locations = self.df_locations.rename(columns={'num_acc': 'Num_Acc', 'vma': 'VitMax'})
+            
+            # Charger usagers
+            self.df_users = pd.read_csv(f"{config.PROCESSED_DATA_DIR}/usagers-2023.csv", sep=';', encoding='utf-8')
+            self.df_users = self.df_users.rename(columns={'num_acc': 'Num_Acc'})
+            
+            # Charger vehicules
+            self.df_vehicles = pd.read_csv(f"{config.PROCESSED_DATA_DIR}/vehicules-2023.csv", sep=';', encoding='utf-8')
+            self.df_vehicles = self.df_vehicles.rename(columns={'num_acc': 'Num_Acc'})
+            
+            # Ajouter colonnes derivees
+            self._add_derived_columns()
+                
+        except FileNotFoundError as e:
+            print(f"❌ ERREUR: Donnees non trouvees!")
+            print(f"   Chemin recherche: {config.PROCESSED_DATA_DIR}/")
+            print(f"   Veuillez d'abord executer: python main.py")
+            raise e
+    
+    def _add_derived_columns(self):
+        """Ajoute les colonnes derivees calculees"""
+        # Compter vehicules par accident
+        vehicle_counts = self.df_vehicles.groupby('Num_Acc').size().reset_index(name='nb_vehicules')
+        self.df_characteristics = self.df_characteristics.merge(vehicle_counts, on='Num_Acc', how='left')
+        self.df_characteristics['nb_vehicules'] = self.df_characteristics['nb_vehicules'].fillna(1).astype(int)
+        
+        # Compter usagers par accident
+        user_counts = self.df_users.groupby('Num_Acc').size().reset_index(name='nb_usagers')
+        self.df_characteristics = self.df_characteristics.merge(user_counts, on='Num_Acc', how='left')
+        self.df_characteristics['nb_usagers'] = self.df_characteristics['nb_usagers'].fillna(1).astype(int)
+        
+        # Ajouter gravité (max par accident)
+        gravity = self.df_users.groupby('Num_Acc')['grav'].max().reset_index(name='grav')
+        self.df_characteristics = self.df_characteristics.merge(gravity, on='Num_Acc', how='left')
+        self.df_characteristics['grav'] = self.df_characteristics['grav'].fillna(1).astype(int)
     
     def test_connection(self):
         """Test de connexion à la base"""
@@ -63,7 +118,7 @@ class DashboardData:
     # ===== METHODS KPI =====
     def get_kpis(self, filters=None):
         """Retourne les KPIs principaux"""
-        df = self.df_characteristics
+        df = self.df_characteristics.copy()
         
         if filters and 'months' in filters and filters['months']:
             df = df[df['mois'].isin(filters['months'])]
@@ -114,7 +169,7 @@ class DashboardData:
     def get_available_departments(self):
         """Récupère les départements disponibles"""
         if self.df_characteristics is not None:
-            return sorted(self.df_characteristics['dept'].dropna().unique().astype(int).tolist())
+            return sorted(self.df_characteristics['dept'].dropna().unique().tolist())
         return []
     
     def get_available_months(self):
